@@ -1,0 +1,63 @@
+return {
+  {
+    "williamboman/mason.nvim",
+    opts = {},
+  },
+  {
+    "williamboman/mason-lspconfig.nvim",
+    dependencies = {
+      "williamboman/mason.nvim",
+    },
+    opts = {
+      ensure_installed = { "ts_ls", "eslint" },
+    },
+  },
+  {
+    "neovim/nvim-lspconfig",
+    event = { "BufReadPre", "BufNewFile" },
+    dependencies = {
+      "williamboman/mason.nvim",
+      "williamboman/mason-lspconfig.nvim",
+    },
+    config = function()
+      -- Keymaps on LSP attach
+      vim.api.nvim_create_autocmd("LspAttach", {
+        callback = function(ev)
+          local opts = { buffer = ev.buf }
+          vim.keymap.set("n", "K", vim.lsp.buf.hover, opts)
+          vim.keymap.set("n", "<leader>ca", vim.lsp.buf.code_action, opts)
+          vim.keymap.set("n", "<leader>rn", vim.lsp.buf.rename, opts)
+          vim.keymap.set("n", "[d", vim.diagnostic.goto_prev, opts)
+          vim.keymap.set("n", "]d", vim.diagnostic.goto_next, opts)
+        end,
+      })
+
+      -- Use nvim 0.11+ native vim.lsp.config
+      vim.lsp.config("ts_ls", {})
+      vim.lsp.enable("ts_ls")
+
+      vim.lsp.config("eslint", {})
+      vim.lsp.enable("eslint")
+
+      vim.api.nvim_create_autocmd("BufWritePre", {
+        pattern = { "*.ts", "*.tsx", "*.js", "*.jsx" },
+        callback = function(ev)
+          local clients = vim.lsp.get_clients({ bufnr = ev.buf, name = "eslint" })
+          if #clients > 0 then
+            local client = clients[1]
+            local params = {
+              command = "eslint.applyAllFixes",
+              arguments = {
+                {
+                  uri = vim.uri_from_bufnr(ev.buf),
+                  version = vim.lsp.util.buf_versions[ev.buf],
+                },
+              },
+            }
+            client:request_sync("workspace/executeCommand", params, 3000, ev.buf)
+          end
+        end,
+      })
+    end,
+  },
+}
