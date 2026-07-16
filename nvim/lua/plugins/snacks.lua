@@ -61,6 +61,20 @@ return {
   keys = {
     -- Find files (supports inline filtering: file:name, path segments, -- -g *.ext)
     { "<leader>ff", function() Snacks.picker.files({ transform = make_ws_transform() }) end, desc = "Find Files" },
+    {
+      "<leader>fl",
+      function()
+        local cwd
+        if vim.bo.filetype == "oil" then
+          cwd = require("oil").get_current_dir()
+        else
+          local file = vim.api.nvim_buf_get_name(0)
+          cwd = file ~= "" and vim.fs.dirname(file) or nil
+        end
+        Snacks.picker.files({ cwd = cwd or vim.uv.cwd(), title = "Find Local" })
+      end,
+      desc = "Find Local",
+    },
     { "<leader>fg", function() Snacks.picker.grep({ transform = make_ws_transform() }) end, desc = "Live Grep" },
     { "<leader>fb", function() Snacks.picker.buffers({ transform = make_ws_transform() }) end, desc = "Buffers" },
     { "<leader>fr", function() Snacks.picker.recent({ transform = make_ws_transform() }) end, desc = "Recent Files" },

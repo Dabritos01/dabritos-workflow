@@ -21,6 +21,12 @@ vim.opt.cursorline = true
 vim.opt.scrolloff = 8
 vim.opt.updatetime = 250
 
+vim.keymap.set("n", "<leader>yp", function()
+  local path = vim.fn.expand("%:.")
+  vim.fn.setreg("+", path)
+  vim.notify("Copied " .. path)
+end, { desc = "Copy Relative File Path" })
+
 -- Bootstrap lazy.nvim
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
 if not vim.loop.fs_stat(lazypath) then

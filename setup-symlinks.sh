@@ -19,7 +19,7 @@ link() {
 
 link "$REPO/nvim"                     "$CONFIG/nvim"
 link "$REPO/tmux"                     "$CONFIG/tmux"
-link "$REPO/AGENTS.md"                "$CONFIG/opencode/AGENTS.md"
+link "$REPO/AGENTS.global.md"         "$CONFIG/opencode/AGENTS.md"
 link "$REPO/skills/spec-driven-dev"   "$CONFIG/opencode/skills/spec-driven-dev"
 
 echo "Done."
