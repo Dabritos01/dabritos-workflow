@@ -6,7 +6,7 @@ return {
     keymap = {
       preset = 'none', -- We'll define our own to avoid conflicts
    
-      ['<C-space>'] = { 'show', 'show_documentation', 'hide_documentation' },
+      ['<C-n>'] = { 'show', 'show_documentation', 'hide_documentation' },
       ['<C-e>'] = { 'hide' },
    
       -- This is what you want: Enter to confirm
