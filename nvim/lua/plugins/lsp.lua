@@ -9,7 +9,7 @@ return {
       "williamboman/mason.nvim",
     },
     opts = {
-      ensure_installed = { "ts_ls", "eslint" },
+      ensure_installed = { "ts_ls", "eslint", "graphql" },
     },
   },
   {
@@ -39,6 +39,30 @@ return {
 
       vim.lsp.config("eslint", {})
       vim.lsp.enable("eslint")
+
+      vim.filetype.add({ extension = { gql = "graphql" } })
+      vim.lsp.config("graphql", {
+        filetypes = { "graphql" },
+        root_dir = function(bufnr, on_dir)
+          on_dir(vim.fs.root(bufnr, { "schema.gql" }))
+        end,
+        cmd = function(dispatchers, config)
+          local root_dir = assert(config.root_dir)
+          local config_dir = vim.fs.joinpath(vim.fn.stdpath("cache"), "graphql-lsp", vim.fn.sha256(root_dir))
+          local config_path = vim.fs.joinpath(config_dir, "graphql.config.json")
+          local config_json = vim.json.encode({ schema = vim.fs.joinpath(root_dir, "schema.gql") })
+
+          vim.fn.mkdir(config_dir, "p")
+          vim.fn.writefile({ config_json }, config_path)
+
+          return vim.lsp.rpc.start(
+            { "graphql-lsp", "server", "-m", "stream", "-c", config_dir },
+            dispatchers,
+            { cwd = root_dir }
+          )
+        end,
+      })
+      vim.lsp.enable("graphql")
 
       vim.api.nvim_create_autocmd("BufWritePre", {
         pattern = { "*.ts", "*.tsx", "*.js", "*.jsx" },
