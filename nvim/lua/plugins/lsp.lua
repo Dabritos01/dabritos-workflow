@@ -9,7 +9,7 @@ return {
       "williamboman/mason.nvim",
     },
     opts = {
-      ensure_installed = { "ts_ls", "eslint", "graphql" },
+      ensure_installed = { "ts_ls", "eslint", "graphql", "marksman" },
     },
   },
   {
@@ -39,6 +39,9 @@ return {
 
       vim.lsp.config("eslint", {})
       vim.lsp.enable("eslint")
+
+      vim.lsp.config("marksman", {})
+      vim.lsp.enable("marksman")
 
       vim.filetype.add({ extension = { gql = "graphql" } })
       vim.lsp.config("graphql", {
