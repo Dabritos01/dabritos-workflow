@@ -19,6 +19,7 @@ link() {
 
 link "$REPO/nvim"                     "$CONFIG/nvim"
 link "$REPO/tmux"                     "$CONFIG/tmux"
+link "$REPO/aerospace"                "$CONFIG/aerospace"
 link "$REPO/AGENTS.global.md"         "$CONFIG/opencode/AGENTS.md"
 link "$REPO/skills/spec-driven-dev"   "$CONFIG/opencode/skills/spec-driven-dev"
 
