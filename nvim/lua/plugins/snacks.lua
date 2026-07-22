@@ -1,5 +1,14 @@
 local _ws_cache = {}
 
+-- Drop the workspace cache. Pass a root to clear just that repo, or nil for all.
+local function clear_ws_cache(root)
+  if root then
+    _ws_cache[root] = nil
+  else
+    _ws_cache = {}
+  end
+end
+
 local function get_workspaces()
   local root = vim.fs.root(0, { "yarn.lock" })
   if not root then return nil, nil end
@@ -40,6 +49,48 @@ local function make_ws_transform()
   end
 end
 
+-- Present a picker of yarn workspaces; calls on_confirm(item) with the chosen one.
+-- item fields: name, path (absolute dir), location (relative dir + trailing slash).
+local function pick_workspace(title, on_confirm)
+  local _, workspaces = get_workspaces()
+  if not workspaces or #workspaces == 0 then
+    vim.notify("No yarn workspaces found", vim.log.levels.WARN)
+    return
+  end
+  local items = {}
+  for _, ws in ipairs(workspaces) do
+    table.insert(items, {
+      text = ws.name .. "  " .. ws.location,
+      file = ws.path,
+      name = ws.name,
+      path = ws.path,
+      location = ws.location,
+    })
+  end
+  Snacks.picker({
+    title = title,
+    items = items,
+    confirm = function(picker, item)
+      picker:close()
+      if item then on_confirm(item) end
+    end,
+  })
+end
+
+-- Map of location -> workspace object (incl. workspaceDependencies) from yarn's verbose output.
+local function get_workspaces_verbose(root)
+  local output = vim.fn.systemlist("yarn --cwd " .. root .. " workspaces list --json -v")
+  if vim.v.shell_error ~= 0 then return nil end
+  local by_location = {}
+  for _, line in ipairs(output) do
+    local ok, ws = pcall(vim.json.decode, line)
+    if ok and ws and ws.location then
+      by_location[ws.location] = ws
+    end
+  end
+  return by_location
+end
+
 return {
   "folke/snacks.nvim",
   lazy = false,
@@ -57,6 +108,38 @@ return {
   config = function(_, opts)
     require("snacks").setup(opts)
     vim.notify = require("snacks").notifier.notify
+
+    -- Show the owning yarn workspace in the winbar for files inside a monorepo
+    local ws_group = vim.api.nvim_create_augroup("WorkspaceWinbar", { clear = true })
+    vim.api.nvim_create_autocmd({ "BufWinEnter", "BufEnter" }, {
+      group = ws_group,
+      callback = function(ev)
+        if vim.bo[ev.buf].buftype ~= "" then return end
+        local file = vim.api.nvim_buf_get_name(ev.buf)
+        if file == "" then return end
+        local _, workspaces = get_workspaces()
+        local label
+        if workspaces then
+          local tail = vim.fn.fnamemodify(file, ":t")
+          for _, ws in ipairs(workspaces) do
+            if file:find(ws.path, 1, true) == 1 then
+              label = "%#Comment#" .. ws.name .. "%* › " .. tail
+              break
+            end
+          end
+        end
+        vim.wo.winbar = label or ""
+      end,
+    })
+
+    -- Invalidate the workspace cache when the workspace graph changes
+    vim.api.nvim_create_autocmd("BufWritePost", {
+      group = ws_group,
+      pattern = "yarn.lock",
+      callback = function()
+        clear_ws_cache()
+      end,
+    })
   end,
   keys = {
     -- Find files (supports inline filtering: file:name, path segments, -- -g *.ext)
@@ -185,74 +268,55 @@ return {
 
     -- Yarn workspaces
     {
-      "<leader>wo",
+      "<leader>wr",
       function()
-        local root = vim.fs.root(0, { "yarn.lock" }) or vim.uv.cwd()
-        local output = vim.fn.systemlist("yarn --cwd " .. root .. " workspaces list --json")
-        local items = {}
-        for _, line in ipairs(output) do
-          local ok, ws = pcall(vim.json.decode, line)
-          if ok and ws and ws.location and ws.location ~= "." then
-            local path = root .. "/" .. ws.location
-            table.insert(items, {
-              text = (ws.name or ws.location) .. "  " .. ws.location,
-              file = path,
-              name = ws.name or ws.location,
-              location = path,
-            })
-          end
-        end
-        if #items == 0 then
-          vim.notify("No yarn workspaces found", vim.log.levels.WARN)
-          return
-        end
-        Snacks.picker({
-          title = "Yarn Workspace → Oil",
-          items = items,
-          confirm = function(picker, item)
-            picker:close()
-            if item then
-              vim.cmd("Oil " .. vim.fn.fnameescape(item.location))
-            end
-          end,
-        })
+        clear_ws_cache()
+        local _, workspaces = get_workspaces()
+        vim.notify("Refreshed " .. (workspaces and #workspaces or 0) .. " yarn workspaces", vim.log.levels.INFO)
       end,
-      desc = "Yarn Workspace → Oil",
+      desc = "Yarn Workspace → Refresh Cache",
     },
+    { "<leader>wf", function() pick_workspace("Yarn Workspace → Find Files", function(item) Snacks.picker.files({ dirs = { item.path }, transform = make_ws_transform() }) end) end, desc = "Yarn Workspace → Find Files" },
+    { "<leader>wg", function() pick_workspace("Yarn Workspace → Grep", function(item) Snacks.picker.grep({ dirs = { item.path }, transform = make_ws_transform() }) end) end, desc = "Yarn Workspace → Grep" },
+    { "<leader>wo", function() pick_workspace("Yarn Workspace → Oil", function(item) vim.cmd("Oil " .. vim.fn.fnameescape(item.path)) end) end, desc = "Yarn Workspace → Oil" },
     {
-      "<leader>wf",
+      "<leader>wd",
       function()
-        local root = vim.fs.root(0, { "yarn.lock" }) or vim.uv.cwd()
-        local output = vim.fn.systemlist("yarn --cwd " .. root .. " workspaces list --json")
-        local items = {}
-        for _, line in ipairs(output) do
-          local ok, ws = pcall(vim.json.decode, line)
-          if ok and ws and ws.location and ws.location ~= "." then
-            local path = root .. "/" .. ws.location
-            table.insert(items, {
-              text = (ws.name or ws.location) .. "  " .. ws.location,
-              file = path,
-              name = ws.name or ws.location,
-              location = path,
+        pick_workspace("Yarn Workspace → Dependencies", function(item)
+          local root = vim.fs.root(0, { "yarn.lock" }) or vim.uv.cwd()
+          local by_location = get_workspaces_verbose(root)
+          if not by_location then
+            vim.notify("Could not read workspace dependencies", vim.log.levels.ERROR)
+            return
+          end
+          local ws = by_location[(item.location:gsub("/$", ""))]
+          local deps = ws and ws.workspaceDependencies or {}
+          if #deps == 0 then
+            vim.notify(item.name .. " has no workspace dependencies", vim.log.levels.INFO)
+            return
+          end
+          local dep_items = {}
+          for _, dep_loc in ipairs(deps) do
+            local dep = by_location[dep_loc]
+            local name = dep and dep.name or dep_loc
+            table.insert(dep_items, {
+              text = name .. "  " .. dep_loc,
+              file = root .. "/" .. dep_loc,
+              path = root .. "/" .. dep_loc,
+              name = name,
             })
           end
-        end
-        if #items == 0 then
-          vim.notify("No yarn workspaces found", vim.log.levels.WARN)
-          return
-        end
-        Snacks.picker({
-          title = "Yarn Workspace → Grep",
-          items = items,
-          confirm = function(picker, item)
-            picker:close()
-            if item then
-              Snacks.picker.grep({ dirs = { item.location } })
-            end
-          end,
-        })
+          Snacks.picker({
+            title = item.name .. " → Dependencies",
+            items = dep_items,
+            confirm = function(picker, dep)
+              picker:close()
+              if dep then vim.cmd("Oil " .. vim.fn.fnameescape(dep.path)) end
+            end,
+          })
+        end)
       end,
-      desc = "Yarn Workspace → Grep",
+      desc = "Yarn Workspace → Dependencies",
     },
   },
 }
