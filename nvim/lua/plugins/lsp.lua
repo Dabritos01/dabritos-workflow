@@ -9,7 +9,7 @@ return {
       "williamboman/mason.nvim",
     },
     opts = {
-      ensure_installed = { "ts_ls", "eslint", "graphql", "marksman" },
+      ensure_installed = { "eslint", "graphql", "marksman" },
     },
   },
   {
@@ -34,8 +34,8 @@ return {
       })
 
       -- Use nvim 0.11+ native vim.lsp.config
-      vim.lsp.config("ts_ls", {})
-      vim.lsp.enable("ts_ls")
+      vim.lsp.config("tsgo", {})
+      vim.lsp.enable("tsgo")
 
       vim.lsp.config("eslint", {})
       vim.lsp.enable("eslint")
