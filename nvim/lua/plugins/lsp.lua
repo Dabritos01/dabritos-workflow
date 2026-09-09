@@ -9,7 +9,9 @@ return {
       "williamboman/mason.nvim",
     },
     opts = {
-      ensure_installed = { "eslint", "graphql", "marksman" },
+      ensure_installed = { "eslint", "graphql", "marksman", "ts_ls" },
+      -- ts_ls is enabled manually below
+      automatic_enable = { exclude = { "ts_ls" } },
     },
   },
   {
@@ -33,9 +35,9 @@ return {
         end,
       })
 
-      -- Use nvim 0.11+ native vim.lsp.config
-      vim.lsp.config("tsgo", {})
-      vim.lsp.enable("tsgo")
+      -- Use workspace TypeScript for compatibility; switch these two calls to tsgo when projects support TS7.
+      vim.lsp.config("ts_ls", {})
+      vim.lsp.enable("ts_ls")
 
       vim.lsp.config("eslint", {})
       vim.lsp.enable("eslint")
