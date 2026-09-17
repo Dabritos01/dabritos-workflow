@@ -202,12 +202,46 @@ return {
         local items = {}
         for _, f in ipairs(files) do
           local filepath = root .. "/" .. f
-          local lnum = 0
-          for line in io.lines(filepath) do
-            lnum = lnum + 1
-            if line:match("^<<<<<<<") then
-              table.insert(items, { text = f .. ":" .. lnum, file = filepath, pos = { lnum, 0 } })
+          if vim.fn.filereadable(filepath) == 1 then
+            -- File present in the working tree: locate its conflict markers.
+            local lnum = 0
+            for line in io.lines(filepath) do
+              lnum = lnum + 1
+              if line:match("^<<<<<<<") then
+                table.insert(items, {
+                  text = f .. ":" .. lnum,
+                  file = filepath,
+                  pos = { lnum, 0 },
+                  preview = "file",
+                })
+              end
             end
+          else
+            -- File is gone from the working tree (e.g. delete/delete conflict):
+            -- fall back to the common-ancestor version from git stage 1.
+            local raw = vim.fn.system({ "git", "-C", root, "show", ":1:" .. f })
+            local ok = vim.v.shell_error == 0
+            local binary = ok and raw:find("\0", 1, true) ~= nil
+            local base_lines, ft, preview
+            if not ok then
+              base_lines = { "No base version available for: " .. f }
+              preview = { text = base_lines[1] }
+            elseif binary then
+              base_lines = { "Binary file (deleted on both sides):", f }
+              preview = { text = table.concat(base_lines, "\n") }
+            else
+              base_lines = vim.split(raw, "\n")
+              ft = vim.filetype.match({ filename = f })
+              preview = { text = raw, ft = ft }
+            end
+            table.insert(items, {
+              text = "[deleted] " .. f,
+              deleted = true,
+              rel = f,
+              ft = ft,
+              base_lines = base_lines,
+              preview = preview,
+            })
           end
         end
         if #items == 0 then
@@ -217,11 +251,24 @@ return {
         Snacks.picker({
           title = "Merge Conflicts",
           items = items,
-          preview = "file",
+          preview = "preview",
           confirm = function(picker, item)
             picker:close()
-            vim.cmd.edit(item.file)
-            vim.api.nvim_win_set_cursor(0, { item.pos[1], 0 })
+            if not item then return end
+            if item.deleted then
+              -- Show the base (stage 1) content in a read-only scratch buffer.
+              local buf = vim.api.nvim_create_buf(false, true)
+              vim.api.nvim_buf_set_lines(buf, 0, -1, false, item.base_lines)
+              vim.bo[buf].buftype = "nofile"
+              vim.bo[buf].bufhidden = "wipe"
+              vim.bo[buf].modifiable = false
+              if item.ft then vim.bo[buf].filetype = item.ft end
+              pcall(vim.api.nvim_buf_set_name, buf, "conflict-base://" .. item.rel)
+              vim.api.nvim_win_set_buf(0, buf)
+            else
+              vim.cmd.edit(item.file)
+              vim.api.nvim_win_set_cursor(0, { item.pos[1], 0 })
+            end
           end,
         })
       end,

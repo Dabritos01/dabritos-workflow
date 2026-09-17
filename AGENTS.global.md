@@ -33,4 +33,4 @@ Do NOT use `nvm use &&` as a prefix — it will fail silently or error.
 
 ## dh folders and \*.dh.\* files
 - I have folders called dh and files containing .dh. globally git ignored
-- These are scratch/working files that are safe to write to
+- Use these data husks for scratch/working files that are safe to write to
