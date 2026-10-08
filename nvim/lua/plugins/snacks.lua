@@ -49,6 +49,14 @@ local function make_ws_transform()
   end
 end
 
+local function get_local_dir()
+  if vim.bo.filetype == "oil" then
+    return require("oil").get_current_dir()
+  end
+  local file = vim.api.nvim_buf_get_name(0)
+  return (file ~= "" and vim.fs.dirname(file)) or vim.uv.cwd()
+end
+
 -- Present a picker of yarn workspaces; calls on_confirm(item) with the chosen one.
 -- item fields: name, path (absolute dir), location (relative dir + trailing slash).
 local function pick_workspace(title, on_confirm)
@@ -145,19 +153,11 @@ return {
     -- Find files (supports inline filtering: file:name, path segments, -- -g *.ext)
     { "<leader>ff", function() Snacks.picker.files({ transform = make_ws_transform() }) end, desc = "Find Files" },
     {
-      "<leader>fl",
-      function()
-        local cwd
-        if vim.bo.filetype == "oil" then
-          cwd = require("oil").get_current_dir()
-        else
-          local file = vim.api.nvim_buf_get_name(0)
-          cwd = file ~= "" and vim.fs.dirname(file) or nil
-        end
-        Snacks.picker.files({ cwd = cwd or vim.uv.cwd(), title = "Find Local" })
-      end,
-      desc = "Find Local",
+      "<leader>flf",
+      function() Snacks.picker.files({ cwd = get_local_dir(), title = "Find Local Files" }) end,
+      desc = "Find Local Files",
     },
+    { "<leader>flg", function() Snacks.picker.grep({ cwd = get_local_dir(), title = "Grep Local" }) end, desc = "Grep Local" },
     { "<leader>fg", function() Snacks.picker.grep({ transform = make_ws_transform() }) end, desc = "Live Grep" },
     { "<leader>fb", function() Snacks.picker.buffers({ transform = make_ws_transform() }) end, desc = "Buffers" },
     { "<leader>fr", function() Snacks.picker.recent({ transform = make_ws_transform() }) end, desc = "Recent Files" },
