@@ -9,7 +9,7 @@ return {
       "williamboman/mason.nvim",
     },
     opts = {
-      ensure_installed = { "eslint", "graphql", "marksman", "ts_ls" },
+      ensure_installed = { "dockerls", "eslint", "graphql", "marksman", "ts_ls" },
       -- ts_ls is enabled manually below
       automatic_enable = { exclude = { "ts_ls" } },
     },
