@@ -27,6 +27,10 @@ vim.keymap.set("n", "<leader>yp", function()
   vim.notify("Copied " .. path)
 end, { desc = "Copy Relative File Path" })
 
+vim.keymap.set("x", "<leader>os", function()
+  require("opencode").send_selection()
+end, { desc = "Send Selection to OpenCode" })
+
 -- Bootstrap lazy.nvim
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
 if not vim.loop.fs_stat(lazypath) then
